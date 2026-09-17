@@ -8,6 +8,7 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.Prediction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -105,7 +106,7 @@ public class PancakeBlock extends Block {
         if (!level.isClientSide()) {
             ItemStack serving = this.getServingItem();
             if (!player.getInventory().add(serving)) {
-                player.drop(serving, false);
+                player.drop(serving, false, Prediction.SERVER_ONLY);
             }
         }
 

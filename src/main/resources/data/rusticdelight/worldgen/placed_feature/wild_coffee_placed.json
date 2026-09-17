@@ -1,9 +1,9 @@
 {
-  "feature": "rusticdelight:wild_cotton",
+  "feature": "rusticdelight:wild_coffee",
   "placement": [
     {
       "type": "rusticdelight:configurable_rarity_filter",
-      "option": "wild_cotton_chance"
+      "option": "wild_coffee_chance"
     },
     {
       "type": "minecraft:in_square"

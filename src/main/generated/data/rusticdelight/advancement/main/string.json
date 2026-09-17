@@ -7,11 +7,15 @@
   ],
   "parent": "rusticdelight:main/cotton",
   "criteria": {
-    "string_from_cotton": {
+    "string": {
       "conditions": {
-        "recipe_id": "rusticdelight:string_from_cotton_boll"
+        "items": [
+          {
+            "items": "minecraft:string"
+          }
+        ]
       },
-      "trigger": "minecraft:recipe_crafted"
+      "trigger": "minecraft:inventory_changed"
     }
   },
   "display": {
@@ -27,7 +31,7 @@
   },
   "requirements": [
     [
-      "string_from_cotton"
+      "string"
     ]
   ],
   "sends_telemetry_event": true

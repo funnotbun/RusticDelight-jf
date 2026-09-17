@@ -3,16 +3,14 @@ package com.phantomwing.rusticdelight.world.modifiers;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import com.phantomwing.rusticdelight.RusticDelightConfig;
-import com.phantomwing.rusticdelight.world.ModPlacementModifiers;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.ExtraCodecs;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.levelgen.placement.PlacementContext;
 import net.minecraft.world.level.levelgen.placement.PlacementFilter;
-import net.minecraft.world.level.levelgen.placement.PlacementModifierType;
 import org.jetbrains.annotations.NotNull;
 
-public class ConfigurableRarityFilter extends PlacementFilter {
+public class ConfigurableRarityFilter implements PlacementFilter {
     public static final MapCodec<ConfigurableRarityFilter> CODEC = RecordCodecBuilder.mapCodec((builder) ->
             builder.group(
                     ExtraCodecs.NON_EMPTY_STRING.fieldOf("option").forGetter((instance) -> instance.chance)
@@ -28,7 +26,8 @@ public class ConfigurableRarityFilter extends PlacementFilter {
         return new ConfigurableRarityFilter(chance);
     }
 
-    protected boolean shouldPlace(@NotNull PlacementContext context, RandomSource random, @NotNull BlockPos pos) {
+    @Override
+    public boolean shouldPlace(@NotNull PlacementContext context, RandomSource random, @NotNull BlockPos pos) {
         // Skip entirely when the crop family is disabled.
         if (!RusticDelightConfig.isWorldgenFeatureEnabled(this.chance)) {
             return false;
@@ -45,7 +44,8 @@ public class ConfigurableRarityFilter extends PlacementFilter {
         return random.nextFloat() < 1.0F / configuredValue;
     }
 
-    public @NotNull PlacementModifierType<?> type() {
-        return ModPlacementModifiers.CONFIGURABLE_RARITY_FILTER;
+    @Override
+    public @NotNull MapCodec<? extends PlacementFilter> codec() {
+        return CODEC;
     }
 }

@@ -14,16 +14,13 @@ import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.AdvancementType;
 import net.minecraft.advancements.predicates.ItemPredicate;
 import net.minecraft.advancements.triggers.InventoryChangeTrigger;
-import net.minecraft.advancements.triggers.RecipeCraftedTrigger;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.ItemLike;
 
 import java.util.concurrent.CompletableFuture;
@@ -49,7 +46,7 @@ public class ModAdvancements extends FabricAdvancementProvider {
         // Root is deliberately ungated: every branch hangs off it, and a child whose parent was
         // conditioned away fails to load.
         AdvancementHolder root = save(consumer, Advancement.Builder.advancement()
-                        .display(ModItems.WILD_COTTON, title("root"), description("root"),
+                        .rootDisplay(ModItems.WILD_COTTON, title("root"), description("root"),
                                 BACKGROUND, AdvancementType.TASK, false, false, false)
                         // No predicate: fires on any inventory change, so the tab appears immediately.
                         // The empty array picks an overload - a bare hasItems() is ambiguous.
@@ -87,18 +84,20 @@ public class ModAdvancements extends FabricAdvancementProvider {
         save(consumer, Advancement.Builder.advancement()
                         .parent(cotton)
                         .display(ModItems.COOKING_OIL, title("cooking_oil"), description("cooking_oil"),
-                                null, AdvancementType.TASK, true, true, false)
+                                AdvancementType.TASK, true, true, false)
                         .addCriterion("cooking_oil", InventoryChangeTrigger.TriggerInstance.hasItems(
                                 ItemPredicate.Builder.item().of(itemGetter, ModItems.COOKING_OIL))),
                 "main/cooking_oil", enabled, new ConfigBooleanCondition(RusticDelightConfig.ENABLE_FRIED_FOODS_ID));
 
-        // Keyed off the recipe rather than the item, so any old string doesn't grant it.
+        // 26.3's recipe_crafted trigger needs a bound recipe holder, but our own recipes aren't
+        // in the lookup while advancements generate - so this fires on holding string instead.
+        // Any string grants it; the tree position under cotton still tells the story.
         save(consumer, Advancement.Builder.advancement()
                         .parent(cotton)
                         .display(net.minecraft.world.item.Items.STRING, title("string"), description("string"),
-                                null, AdvancementType.TASK, true, true, false)
-                        .addCriterion("string_from_cotton", RecipeCraftedTrigger.TriggerInstance.craftedItem(
-                                ResourceKey.create(Registries.RECIPE, Identifier.fromNamespaceAndPath(RusticDelight.MOD_ID, "string_from_cotton_boll")))),
+                                AdvancementType.TASK, true, true, false)
+                        .addCriterion("string", InventoryChangeTrigger.TriggerInstance.hasItems(
+                                ItemPredicate.Builder.item().of(itemGetter, net.minecraft.world.item.Items.STRING))),
                 "main/string", enabled);
     }
 
@@ -134,7 +133,7 @@ public class ModAdvancements extends FabricAdvancementProvider {
         save(consumer, Advancement.Builder.advancement()
                         .parent(pepper)
                         .display(ModItems.RICE_ROLL_ROYALE, title("rice_roll_royale"), description("rice_roll_royale"),
-                                null, AdvancementType.GOAL, true, true, false)
+                                AdvancementType.GOAL, true, true, false)
                         .addCriterion("rice_roll_royale", InventoryChangeTrigger.TriggerInstance.hasItems(
                                 ItemPredicate.Builder.item().of(itemGetter, ModItems.RICE_ROLL_ROYALE))),
                 "main/rice_roll_royale", enabled,
@@ -184,7 +183,7 @@ public class ModAdvancements extends FabricAdvancementProvider {
                                              ResourceCondition... conditions) {
         return save(consumer, Advancement.Builder.advancement()
                         .parent(parent)
-                        .display(icon, title(name), description(name), null, AdvancementType.TASK, true, true, false)
+                        .display(icon, title(name), description(name), AdvancementType.TASK, true, true, false)
                         .addCriterion(name, InventoryChangeTrigger.TriggerInstance.hasItems(match)),
                 "main/" + name, conditions);
     }
@@ -194,7 +193,7 @@ public class ModAdvancements extends FabricAdvancementProvider {
                                      Item icon, AdvancementType type, ConfigBooleanCondition condition, ItemLike... items) {
         Advancement.Builder builder = Advancement.Builder.advancement()
                 .parent(parent)
-                .display(icon, title(name), description(name), null, type, true, true, false)
+                .display(icon, title(name), description(name), type, true, true, false)
                 // One predicate matching any of the items. Passing the items straight to hasItems()
                 // would make a predicate each, and InventoryChangeTrigger requires all of them to
                 // match - i.e. "hold every one at once" rather than "hold any one".
@@ -211,7 +210,7 @@ public class ModAdvancements extends FabricAdvancementProvider {
                                         Item icon, AdvancementType type, ConfigBooleanCondition condition, ItemLike... items) {
         Advancement.Builder builder = Advancement.Builder.advancement()
                 .parent(parent)
-                .display(icon, title(name), description(name), null, type, true, true, false);
+                .display(icon, title(name), description(name), type, true, true, false);
         for (ItemLike item : items) {
             String criterion = BuiltInRegistries.ITEM.getKey(item.asItem()).getPath();
             builder.addCriterion(criterion, InventoryChangeTrigger.TriggerInstance.hasItems(item));

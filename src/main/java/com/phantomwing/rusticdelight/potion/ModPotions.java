@@ -1,9 +1,6 @@
 package com.phantomwing.rusticdelight.potion;
 
 import com.phantomwing.rusticdelight.RusticDelight;
-import com.phantomwing.rusticdelight.RusticDelightConfig;
-import com.phantomwing.rusticdelight.item.ItemFamily;
-import com.phantomwing.rusticdelight.item.ModItems;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -11,11 +8,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionBrewing;
-import net.minecraft.world.item.alchemy.Potions;
-import net.minecraft.world.item.crafting.Ingredient;
 
 public class ModPotions {
     // Potions
@@ -39,23 +32,9 @@ public class ModPotions {
         );
     }
 
-    private static void registerPotionRecipes() {
-        // Golden Coffee Beans are the only brewing ingredient, so the coffee family gates this too.
-        if (!RusticDelightConfig.get().enable_potions || !ItemFamily.COFFEE.isEnabled()) {
-            return;
-        }
-
-        PotionBrewing.Builder.BUILD.register(builder -> {
-            // Haste
-            builder.registerPotionRecipe(Potions.AWKWARD, Ingredient.of(ModItems.GOLDEN_COFFEE_BEANS), HASTE_POTION);
-            builder.registerPotionRecipe(HASTE_POTION, Ingredient.of(Items.REDSTONE), LONG_HASTE_POTION);
-            builder.registerPotionRecipe(HASTE_POTION, Ingredient.of(Items.GLOWSTONE_DUST), STRONG_HASTE_POTION);
-        });
-    }
-
+    // Brewing is data driven since 26.3 (see data/rusticdelight/recipe/brewing/); the recipes
+    // carry the enable_potions + enable_coffee gates as fabric:load_conditions.
     public static void registerModPotions() {
         RusticDelight.LOGGER.info("Registering potions for " + RusticDelight.MOD_ID);
-
-        registerPotionRecipes();
     }
 }

@@ -12,11 +12,13 @@ import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricRecipeProvider;
 import net.fabricmc.fabric.api.resource.conditions.v1.ResourceConditions;
 import net.fabricmc.fabric.api.tag.convention.v2.ConventionalItemTags;
+import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.triggers.InventoryChangeTrigger;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.data.recipes.*;
+import net.minecraft.data.worldgen.BootstrapContext;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.ItemTags;
@@ -56,8 +58,10 @@ public class ModRecipeProvider extends FabricRecipeProvider {
     }
 
     @Override
-    protected @NotNull RecipeProvider createRecipeProvider(HolderLookup.@NotNull Provider registryLookup, @NotNull RecipeOutput exporter) {
-        return new RecipeProvider(registryLookup, exporter) {
+    protected @NotNull RecipeProvider createRecipeProvider(HolderLookup.@NotNull Provider registryLookup, @NotNull BootstrapContext<Recipe<?>> recipeOutput, @NotNull BootstrapContext<Advancement> advancementOutput) {
+        // FD's builders resolve recipe holders through this static (set by FD's own datagen).
+        vectorwing.farmersdelight.data.Recipes.recipeContext = recipeOutput;
+        return new RecipeProvider(recipeOutput, advancementOutput) {
             final HolderGetter<Item> holderGetter = registryLookup.lookupOrThrow(Registries.ITEM);
 
             @Override

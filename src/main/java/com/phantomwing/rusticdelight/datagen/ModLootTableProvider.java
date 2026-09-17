@@ -6,6 +6,8 @@ import com.phantomwing.rusticdelight.item.ModItems;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricBlockLootSubProvider;
 import net.minecraft.advancements.predicates.StatePropertiesPredicate;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderGetter;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.Items;
@@ -16,36 +18,47 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.predicates.*;
-import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
-import net.minecraft.world.level.storage.loot.providers.number.NumberProvider;
-import net.minecraft.world.level.storage.loot.providers.number.UniformGenerator;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProvider;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProviders;
 import vectorwing.farmersdelight.common.block.PieBlock;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public class ModLootTableProvider extends FabricBlockLootSubProvider {
+    private final CompletableFuture<HolderLookup.Provider> lookup;
+    private HolderLookup.Provider registries;
+
     public ModLootTableProvider(FabricPackOutput output, CompletableFuture<HolderLookup.Provider> lookupProvider) {
         super(output, lookupProvider);
+        this.lookup = lookupProvider;
     }
 
     // Actually add our loot tables.
     @Override
     public void generate() {
+        try {
+            this.registries = lookup.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+
         dropCrop(
                 ModBlocks.COTTON_CROP, CottonCropBlock.AGE, CottonCropBlock.MAX_AGE,
-                ModItems.COTTON_SEEDS, UniformGenerator.between(1.0F, 3.0F),
-                ModItems.COTTON_BOLL, UniformGenerator.between(1.0F, 3.0F));
+                ModItems.COTTON_SEEDS, ContextIntProviders.between(1, 3),
+                ModItems.COTTON_BOLL, ContextIntProviders.between(1, 3));
         dropBellPepperCrop(ModBlocks.BELL_PEPPER_CROP);
         dropPaleBellPepperCrop(ModBlocks.PALE_BELL_PEPPER_CROP);
         dropDarkBellPepperCrop(ModBlocks.DARK_BELL_PEPPER_CROP);
         dropCrop(
                 ModBlocks.COFFEE_CROP, CoffeeCropBlock.AGE, CoffeeCropBlock.MAX_AGE,
-                ModItems.COFFEE_BEANS, UniformGenerator.between(1.0F, 1.0F),
-                ModItems.COFFEE_BEANS, UniformGenerator.between(1.0F, 4.0F));
+                ModItems.COFFEE_BEANS, ContextIntProviders.exactly(1),
+                ModItems.COFFEE_BEANS, ContextIntProviders.between(1, 4));
 
         dropWildCrop(ModBlocks.WILD_COTTON, ModItems.COTTON_SEEDS, ModItems.COTTON_BOLL);
         dropWildCrop(ModBlocks.WILD_BELL_PEPPERS, ModItems.BELL_PEPPER_SEEDS, ModItems.BELL_PEPPER_RED);
@@ -115,11 +128,23 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
         super.add(block, builder);
     }
 
-    private void dropPottedFlower(Block pottedBlock, Block flowerBlock) {
-        this.add(pottedBlock, createPotFlowerItemTable(flowerBlock));
+    private LootItemCondition.Builder hasBlockStateProperties(Block block, StatePropertiesPredicate.Builder properties) {
+        return MatchBlock.blockMatches(this.registries.lookupOrThrow(Registries.BLOCK), block, properties);
     }
 
-    private void dropCrop(Block block, IntegerProperty age, int maxAge, ItemLike seedsItem, NumberProvider seedsCount, ItemLike cropItem, NumberProvider cropCount) {
+    private void dropPottedFlower(Block pottedBlock, Block flowerBlock) {
+        this.add(pottedBlock, LootTable.lootTable()
+                .withPool(LootPool.lootPool()
+                        .setRolls(ContextIntProviders.exactly(1))
+                        .when(ExplosionCondition.survivesExplosion())
+                        .add(LootItem.lootTableItem(Items.FLOWER_POT)))
+                .withPool(LootPool.lootPool()
+                        .setRolls(ContextIntProviders.exactly(1))
+                        .when(ExplosionCondition.survivesExplosion())
+                        .add(LootItem.lootTableItem(flowerBlock))));
+    }
+
+    private void dropCrop(Block block, IntegerProperty age, int maxAge, ItemLike seedsItem, Holder<ContextIntProvider> seedsCount, ItemLike cropItem, Holder<ContextIntProvider> cropCount) {
         this.add(block, blockParam -> createCropDrops(blockParam, age, maxAge, seedsItem, seedsCount, cropItem, cropCount));
     }
 
@@ -151,24 +176,25 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
         this.add(block, blockParam -> createPancakeDrops(blockParam, pancakeItem));
     }
 
-    private LootTable.Builder createCropDrops(Block cropBlock, IntegerProperty age, int maxAge, ItemLike seedsItem, NumberProvider seedsCount, ItemLike cropItem, NumberProvider cropCount) {
+    private LootTable.Builder createCropDrops(Block cropBlock, IntegerProperty age, int maxAge, ItemLike seedsItem, Holder<ContextIntProvider> seedsCount, ItemLike cropItem, Holder<ContextIntProvider> cropCount) {
         HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
 
         // Condition that checks if the crop is fully grown.
-        LootItemCondition.Builder dropGrownCropCondition = LootItemBlockStatePropertyCondition
-                .hasBlockStateProperties(cropBlock)
-                .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(age, maxAge));
+        LootItemCondition.Builder dropGrownCropCondition = hasBlockStateProperties(cropBlock,
+                StatePropertiesPredicate.Builder.properties().hasProperty(age, maxAge));
 
         return this.applyExplosionDecay(
                 cropBlock,
                 LootTable.lootTable()
                         // When not fully grown, drop the original seed.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(InvertedLootItemCondition.invert(dropGrownCropCondition))
                                 .add(LootItem.lootTableItem(seedsItem))
                         )
                         // When fully grown, drop additional seeds (including a Fortune bonus).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(seedsItem)
                                         .apply(SetItemCountFunction.setCount(seedsCount))
@@ -177,6 +203,7 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
                         )
                         // When fully grown, also drop the full-grown crop items (including a Fortune bonus).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(cropItem)
                                         .apply(SetItemCountFunction.setCount(cropCount))
@@ -190,28 +217,30 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
         HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
 
         // Condition that checks if the crop is fully grown.
-        LootItemCondition.Builder dropGrownCropCondition = LootItemBlockStatePropertyCondition
-                .hasBlockStateProperties(cropBlock)
-                .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
+        LootItemCondition.Builder dropGrownCropCondition = hasBlockStateProperties(cropBlock,
+                StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
 
         return this.applyExplosionDecay(
                 cropBlock,
                 LootTable.lootTable()
                         // When not fully grown, drop the original seed.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(InvertedLootItemCondition.invert(dropGrownCropCondition))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_SEEDS))
                         )
                         // When fully grown, drop additional seeds (including a Fortune bonus).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_SEEDS)
-                                        .apply(SetItemCountFunction.setCount(UniformGenerator.between(1.0F, 2.0F)))
+                                        .apply(SetItemCountFunction.setCount(ContextIntProviders.between(1, 2)))
                                         .apply(ApplyBonusCount.addUniformBonusCount(enchantments.getOrThrow(Enchantments.FORTUNE)))
                                 )
                         )
                         // When fully grown, also drop a bell pepper.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_RED).setWeight(6)) // Red bell peppers are more common
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_GREEN))
@@ -219,12 +248,14 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
                         )
                         // When fully grown, potentially drop an additional green bell pepper.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_GREEN))
                         )
                         // Finally, when fully grown, potentially drop additional yellow bell pepper.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_YELLOW))
@@ -235,28 +266,30 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
     private LootTable.Builder createPaleBellPepperDrops(Block cropBlock) {
         HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
 
-        LootItemCondition.Builder dropGrownCropCondition = LootItemBlockStatePropertyCondition
-                .hasBlockStateProperties(cropBlock)
-                .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
+        LootItemCondition.Builder dropGrownCropCondition = hasBlockStateProperties(cropBlock,
+                StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
 
         return this.applyExplosionDecay(
                 cropBlock,
                 LootTable.lootTable()
                         // When not fully grown, drop the original seed.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(InvertedLootItemCondition.invert(dropGrownCropCondition))
                                 .add(LootItem.lootTableItem(ModItems.PALE_BELL_PEPPER_SEEDS))
                         )
                         // When fully grown, drop additional seeds (including a Fortune bonus).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.PALE_BELL_PEPPER_SEEDS)
-                                        .apply(SetItemCountFunction.setCount(UniformGenerator.between(1.0F, 2.0F)))
+                                        .apply(SetItemCountFunction.setCount(ContextIntProviders.between(1, 2)))
                                         .apply(ApplyBonusCount.addUniformBonusCount(enchantments.getOrThrow(Enchantments.FORTUNE)))
                                 )
                         )
                         // When fully grown, drop one bell pepper (orange/white/pink, equal chance).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_ORANGE))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_WHITE))
@@ -264,6 +297,7 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
                         )
                         // Two independent 15% chances for a bonus bell pepper of a random color.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_ORANGE))
@@ -271,6 +305,7 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_PINK))
                         )
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_ORANGE))
@@ -283,32 +318,35 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
     private LootTable.Builder createDarkBellPepperDrops(Block cropBlock) {
         HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
 
-        LootItemCondition.Builder dropGrownCropCondition = LootItemBlockStatePropertyCondition
-                .hasBlockStateProperties(cropBlock)
-                .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
+        LootItemCondition.Builder dropGrownCropCondition = hasBlockStateProperties(cropBlock,
+                StatePropertiesPredicate.Builder.properties().hasProperty(BellPepperCropBlock.AGE, BellPepperCropBlock.MAX_AGE));
 
         return this.applyExplosionDecay(
                 cropBlock,
                 LootTable.lootTable()
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(InvertedLootItemCondition.invert(dropGrownCropCondition))
                                 .add(LootItem.lootTableItem(ModItems.DARK_BELL_PEPPER_SEEDS))
                         )
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.DARK_BELL_PEPPER_SEEDS)
-                                        .apply(SetItemCountFunction.setCount(UniformGenerator.between(1.0F, 2.0F)))
+                                        .apply(SetItemCountFunction.setCount(ContextIntProviders.between(1, 2)))
                                         .apply(ApplyBonusCount.addUniformBonusCount(enchantments.getOrThrow(Enchantments.FORTUNE)))
                                 )
                         )
                         // When fully grown, drop one bell pepper (blue/purple/black, equal chance).
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_BLUE))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_PURPLE))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_BLACK))
                         )
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_BLUE))
@@ -316,6 +354,7 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_BLACK))
                         )
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(dropGrownCropCondition)
                                 .when(LootItemRandomChanceCondition.randomChance(0.15f))
                                 .add(LootItem.lootTableItem(ModItems.BELL_PEPPER_BLUE))
@@ -331,29 +370,33 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
 
     // Drops 1-9 slices of the matching color (melon-style), never the block itself.
     private void dropSlices(Block block, ItemLike slice) {
-        this.add(block, createSingleItemTable(slice, UniformGenerator.between(1.0F, 9.0F)));
+        this.add(block, createSingleItemTable(slice, ContextIntProviders.between(1, 9)));
     }
 
     private LootTable.Builder createWildCropDrops(Block block, ItemLike seedsItem, ItemLike cropItem) {
         HolderLookup.RegistryLookup<Enchantment> enchantments = this.registries.lookupOrThrow(Registries.ENCHANTMENT);
+        HolderGetter<LootItemCondition> predicates = this.registries.lookupOrThrow(Registries.PREDICATE);
+        Holder<LootItemCondition> shear = predicates.getOrThrow(LootPredicates.TOOL_CAN_SHEAR);
+        Holder<LootItemCondition> silkTouch = predicates.getOrThrow(LootPredicates.TOOL_CAN_SILK_TOUCH);
 
         return this.applyExplosionDecay(
                 block,
                 LootTable.lootTable()
-                        // When using Silk Touch, drop the actual block.
+                        // Shears or Silk Touch drop the bush itself, else the seeds (with a Fortune bonus).
                         .withPool(LootPool.lootPool()
-                                .when(hasShearsOrSilkTouch())
-                                .add(LootItem.lootTableItem(block))
+                                .setRolls(ContextIntProviders.exactly(1))
+                                .add(AlternativesEntry.alternatives(
+                                        LootItem.lootTableItem(block).when(shear),
+                                        LootItem.lootTableItem(block).when(silkTouch),
+                                        LootItem.lootTableItem(seedsItem)
+                                                .apply(ApplyBonusCount.addUniformBonusCount(enchantments.getOrThrow(Enchantments.FORTUNE)))))
                         )
-                        // Else, drop the seeds item (including a Fortune bonus).
+                        // Additionally, a random chance to drop the grown crop item when not shearing.
                         .withPool(LootPool.lootPool()
-                                .when(hasShearsOrSilkTouch().invert())
-                                .add(LootItem.lootTableItem(seedsItem)
-                                        .apply(ApplyBonusCount.addUniformBonusCount(enchantments.getOrThrow(Enchantments.FORTUNE))))
-                        )
-                        // Additionally, add a random chance to drop the grown crop item.
-                        .withPool(LootPool.lootPool()
-                                .when(AllOfCondition.allOf(hasShearsOrSilkTouch().invert(), LootItemRandomChanceCondition.randomChance(0.3f)))
+                                .setRolls(ContextIntProviders.exactly(1))
+                                .when(Holder.direct(new InvertedLootItemCondition(shear)))
+                                .when(Holder.direct(new InvertedLootItemCondition(silkTouch)))
+                                .when(LootItemRandomChanceCondition.randomChance(0.3f))
                                 .add(LootItem.lootTableItem(cropItem))
                         )
         );
@@ -369,41 +412,45 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
 
         LootTable.Builder lootTable = LootTable.lootTable()
                 // An untouched plate drops the block itself, matching what the recipe produces.
-                .withPool(LootPool.lootPool().when(isCraftedPlate).add(LootItem.lootTableItem(block)));
+                .withPool(LootPool.lootPool()
+                        .setRolls(ContextIntProviders.exactly(1))
+                        .when(isCraftedPlate)
+                        .add(LootItem.lootTableItem(block)));
 
         for (int servings = 1; servings < PancakeBlock.MAX_TOTAL_SERVINGS; servings++) {
             lootTable.withPool(LootPool.lootPool()
+                    .setRolls(ContextIntProviders.exactly(1))
                     .when(servingsIs(block, servings))
                     .add(LootItem.lootTableItem(pancakeItem)
                             .apply(SetItemCountFunction.setCount(
-                                    ConstantValue.exactly(PancakeBlock.pancakesPresentFor(servings))))));
+                                    ContextIntProviders.exactly(PancakeBlock.pancakesPresentFor(servings))))));
         }
 
         // The plate is only left over once the stack is no longer a whole crafted block.
         lootTable.withPool(LootPool.lootPool()
+                .setRolls(ContextIntProviders.exactly(1))
                 .when(InvertedLootItemCondition.invert(isCraftedPlate))
                 .add(LootItem.lootTableItem(Items.BOWL)));
 
         return this.applyExplosionDecay(block, lootTable);
     }
 
-    private static LootItemCondition.Builder servingsIs(Block block, int servings) {
-        return LootItemBlockStatePropertyCondition.hasBlockStateProperties(block)
-                .setProperties(StatePropertiesPredicate.Builder.properties()
-                        .hasProperty(PancakeBlock.SERVINGS, servings));
+    private LootItemCondition.Builder servingsIs(Block block, int servings) {
+        return hasBlockStateProperties(block, StatePropertiesPredicate.Builder.properties()
+                .hasProperty(PancakeBlock.SERVINGS, servings));
     }
 
     private LootTable.Builder createFoodBlockDrops(Block block, IntegerProperty servings, int defaultServings, ItemLike containerItem) {
         // Condition that checks if any servings have been taken.
-        LootItemCondition.Builder noServingsTaken = LootItemBlockStatePropertyCondition
-                .hasBlockStateProperties(block)
-                .setProperties(StatePropertiesPredicate.Builder.properties().hasProperty(servings, defaultServings));
+        LootItemCondition.Builder noServingsTaken = hasBlockStateProperties(block,
+                StatePropertiesPredicate.Builder.properties().hasProperty(servings, defaultServings));
 
         LootTable.Builder lootTable = this.applyExplosionDecay(
                 block,
                 LootTable.lootTable()
                         // If no servings have been taken yet, drop the block.
                         .withPool(LootPool.lootPool()
+                                .setRolls(ContextIntProviders.exactly(1))
                                 .when(noServingsTaken)
                                 .add(LootItem.lootTableItem(block))
                         )
@@ -413,6 +460,7 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
         if (containerItem != null)
         {
             lootTable.withPool(LootPool.lootPool()
+                            .setRolls(ContextIntProviders.exactly(1))
                             .when(InvertedLootItemCondition.invert(noServingsTaken))
                             .add(LootItem.lootTableItem(containerItem)));
         }

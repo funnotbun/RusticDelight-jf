@@ -1,19 +1,29 @@
 package com.phantomwing.rusticdelight.util;
 
 import com.phantomwing.rusticdelight.item.ModItems;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.block.ComposterBlock;
+import net.fabricmc.fabric.api.item.v1.DefaultItemComponentEvents;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.component.Compostable;
+import net.minecraft.world.level.storage.loot.providers.number.ints.ResolvableInt;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ComposterHelper {
-    private static void registerCompostableItems (float chance, ItemLike...items) {
-        for (ItemLike item : items) {
-            ComposterBlock.COMPOSTABLES.put(item, chance);
+    private record Entry(Item item, int chance) {}
+
+    private static final List<Entry> ENTRIES = new ArrayList<>();
+
+    private static void registerCompostableItems(int chance, Item... items) {
+        for (Item item : items) {
+            ENTRIES.add(new Entry(item, chance));
         }
     }
 
     public static void registerCompostableItems() {
         // 30% chance
-        registerCompostableItems(0.3f,
+        registerCompostableItems(30,
             ModItems.COTTON_SEEDS,
             ModItems.BELL_PEPPER_SEEDS,
             ModItems.PALE_BELL_PEPPER_SEEDS,
@@ -21,7 +31,7 @@ public class ComposterHelper {
         );
 
         // 50% chance
-        registerCompostableItems(0.5f,
+        registerCompostableItems(50,
             ModItems.COTTON_BOLL,
             ModItems.POTATO_SLICES,
             ModItems.COFFEE_BEANS,
@@ -37,7 +47,7 @@ public class ComposterHelper {
         );
 
         // 65% chance
-        registerCompostableItems(0.65f,
+        registerCompostableItems(65,
             ModItems.BELL_PEPPER_GREEN,
             ModItems.BELL_PEPPER_YELLOW,
             ModItems.BELL_PEPPER_RED,
@@ -65,7 +75,7 @@ public class ComposterHelper {
         );
 
         // 85% chance
-        registerCompostableItems(0.85f,
+        registerCompostableItems(85,
             ModItems.COFFEE_COOKIE,
             ModItems.SYRUP_COOKIE,
             ModItems.CHERRY_BLOSSOM_COOKIE,
@@ -75,10 +85,18 @@ public class ComposterHelper {
         );
 
         // 100% chance
-        registerCompostableItems(1.0f,
+        registerCompostableItems(100,
             ModItems.SYRUP_CHEESECAKE,
             ModItems.CHERRY_BLOSSOM_CHEESECAKE,
             ModItems.COFFEE_CHEESECAKE
         );
+
+        DefaultItemComponentEvents.MODIFY.register(context -> {
+            for (Entry entry : ENTRIES) {
+                context.modify(entry.item(), builder -> builder.set(
+                        DataComponents.COMPOSTABLE,
+                        new Compostable(new ResolvableInt.Constant(entry.chance()))));
+            }
+        });
     }
 }
