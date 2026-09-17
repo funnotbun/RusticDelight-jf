@@ -9,7 +9,7 @@
   "category": "food",
   "cookingtime": 600,
   "experience": 0.35,
-  "ingredient": "rusticdelight:potato_slices",
+  "ingredient": "#c:foods/potato_slices",
   "result": {
     "id": "rusticdelight:baked_potato_slices"
   }

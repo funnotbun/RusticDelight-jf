@@ -1,0 +1,9 @@
+{
+  "values": [
+    "rusticdelight:potato_slices",
+    {
+      "id": "moredelight:diced_potatoes",
+      "required": false
+    }
+  ]
+}

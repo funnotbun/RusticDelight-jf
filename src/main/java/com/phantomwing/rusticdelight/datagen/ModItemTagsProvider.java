@@ -466,6 +466,15 @@ public class ModItemTagsProvider extends FabricTagsProvider.ItemTagsProvider {
             CommonTags.CROPS_POTATO
         );
 
+        itemTag(CommonTags.FOODS_POTATO_SLICES).add(
+            ModItems.POTATO_SLICES
+        ).addOptional(
+            // More Delight's diced potatoes work wherever slices do. Optional so the
+            // tag still loads for players without that mod (e.g. our fork gates its
+            // own half behind the same id, but upstream has none).
+            ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("moredelight", "diced_potatoes"))
+        );
+
         itemTag(CommonTags.FOODS_CARROT).add(
             Items.CARROT
         );

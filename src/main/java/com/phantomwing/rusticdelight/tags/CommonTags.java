@@ -15,6 +15,9 @@ public class CommonTags {
     public static final TagKey<Item> FOODS_TOMATO = commonItemTag("foods/tomato");
     public static final TagKey<Item> FOODS_ONION = commonItemTag("foods/onion");
     public static final TagKey<Item> FOODS_POTATO = commonItemTag("foods/potato");
+    // Sliced/diced potatoes. Shared with More Delight's diced potatoes so either works
+    // wherever chopped potato is an ingredient.
+    public static final TagKey<Item> FOODS_POTATO_SLICES = commonItemTag("foods/potato_slices");
     public static final TagKey<Item> FOODS_CARROT = commonItemTag("foods/carrot");
     public static final TagKey<Item> FOODS_BELL_PEPPER = commonItemTag("foods/bell_pepper");
     public static final TagKey<Item> FOODS_BEETROOT = commonItemTag("foods/beetroot");

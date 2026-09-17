@@ -1,0 +1,27 @@
+{
+  "fabric:load_conditions": [
+    {
+      "condition": "rusticdelight:config_boolean",
+      "settingId": "enable_potato_slices"
+    },
+    {
+      "condition": "fabric:all_mods_loaded",
+      "values": [
+        "moredelight"
+      ]
+    }
+  ],
+  "type": "farmersdelight:cutting",
+  "ingredients": [
+    "moredelight:diced_potatoes"
+  ],
+  "result": [
+    {
+      "item": {
+        "count": 2,
+        "id": "rusticdelight:potato_slices"
+      }
+    }
+  ],
+  "tool": "#c:tools/knife"
+}

@@ -162,8 +162,21 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                         .unlockedBy(getHasName(vectorwing.farmersdelight.common.registry.ModItems.COOKED_RICE.get()), has(vectorwing.farmersdelight.common.registry.ModItems.COOKED_RICE.get()))
                         .save(cherryBlossomOutput);
 
-                // Potato
-                foodCookingRecipes(potatoSlicesOutput, ModItems.POTATO_SLICES, ModItems.BAKED_POTATO_SLICES, SMALL_EXP);
+                // Potato. Sliced potatoes are interchangeable with More Delight's diced
+                // potatoes here, so the ingredient is the shared tag, not the item.
+                Ingredient slicedPotatoes = tagIngredient(CommonTags.FOODS_POTATO_SLICES);
+                SimpleCookingRecipeBuilder
+                        .generic(slicedPotatoes, RecipeCategory.FOOD, CookingBookCategory.FOOD, ModItems.BAKED_POTATO_SLICES, SMALL_EXP, NORMAL_COOKING, SmeltingRecipe::new)
+                        .unlockedBy(getHasName(ModItems.POTATO_SLICES), has(ModItems.POTATO_SLICES))
+                        .save(potatoSlicesOutput);
+                SimpleCookingRecipeBuilder
+                        .generic(slicedPotatoes, RecipeCategory.FOOD, CookingBookCategory.FOOD, ModItems.BAKED_POTATO_SLICES, SMALL_EXP, FAST_COOKING, SmokingRecipe::new)
+                        .unlockedBy(getHasName(ModItems.POTATO_SLICES), has(ModItems.POTATO_SLICES))
+                        .save(potatoSlicesOutput, RusticDelight.MOD_ID + ":" + getItemName(ModItems.BAKED_POTATO_SLICES) + "_from_smoking");
+                SimpleCookingRecipeBuilder
+                        .generic(slicedPotatoes, RecipeCategory.FOOD, CookingBookCategory.FOOD, ModItems.BAKED_POTATO_SLICES, SMALL_EXP, 600, CampfireCookingRecipe::new)
+                        .unlockedBy(getHasName(ModItems.POTATO_SLICES), has(ModItems.POTATO_SLICES))
+                        .save(potatoSlicesOutput, RusticDelight.MOD_ID + ":" + getItemName(ModItems.BAKED_POTATO_SLICES) + "_from_campfire_cooking");
 
                 // Salads
                 shapeless(RecipeCategory.FOOD, ModItems.POTATO_SALAD, 1)
