@@ -1,3 +1,6 @@
+# 1.7.1-jf
+26.3 port plus two fixes: giant bell pepper blocks drop themselves with Silk Touch (Fixes PhantomWing/RusticDelight#71), and potato slices stay obtainable alongside More Delight via a shared tag and a diced-to-slices cutting recipe (Fixes PhantomWing/RusticDelight#74).
+
 # 1.7.0
 From colorful bell peppers to cozy cups of coffee, Rustic Delight 1.7 is packed with vibrant new bell pepper varieties, comforting recipes, world generation improvements, and plenty of delightful surprises waiting to be discovered.
 
