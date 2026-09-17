@@ -4,21 +4,31 @@
     {
       "entries": [
         {
-          "type": "minecraft:item",
-          "modifier": [
+          "type": "minecraft:alternatives",
+          "children": [
             {
-              "type": "minecraft:set_count",
-              "count": {
-                "type": "minecraft:uniform",
-                "max": 9,
-                "min": 1
-              }
+              "type": "minecraft:item",
+              "condition": "minecraft:tool/can_silk_touch",
+              "name": "rusticdelight:bell_pepper_pink_block"
             },
             {
-              "type": "minecraft:explosion_decay"
+              "type": "minecraft:item",
+              "modifier": [
+                {
+                  "type": "minecraft:set_count",
+                  "count": {
+                    "type": "minecraft:uniform",
+                    "max": 9,
+                    "min": 1
+                  }
+                },
+                {
+                  "type": "minecraft:explosion_decay"
+                }
+              ],
+              "name": "rusticdelight:bell_pepper_slice_pink"
             }
-          ],
-          "name": "rusticdelight:bell_pepper_slice_pink"
+          ]
         }
       ],
       "rolls": 1

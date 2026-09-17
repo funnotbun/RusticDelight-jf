@@ -21,6 +21,7 @@ import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.AlternativesEntry;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
 import net.minecraft.world.level.storage.loot.functions.ApplyBonusCount;
+import net.minecraft.world.level.storage.loot.functions.ApplyExplosionDecay;
 import net.minecraft.world.level.storage.loot.functions.SetItemCountFunction;
 import net.minecraft.world.level.storage.loot.predicates.*;
 import net.minecraft.world.level.storage.loot.providers.number.ints.ContextIntProvider;
@@ -368,9 +369,18 @@ public class ModLootTableProvider extends FabricBlockLootSubProvider {
         this.add(block, blockParam -> createWildCropDrops(blockParam, seedsItem, cropItem));
     }
 
-    // Drops 1-9 slices of the matching color (melon-style), never the block itself.
+    // Drops 1-9 slices of the matching color (melon-style); Silk Touch drops the block itself.
     private void dropSlices(Block block, ItemLike slice) {
-        this.add(block, createSingleItemTable(slice, ContextIntProviders.between(1, 9)));
+        Holder<LootItemCondition> silkTouch = this.registries.lookupOrThrow(Registries.PREDICATE)
+                .getOrThrow(LootPredicates.TOOL_CAN_SILK_TOUCH);
+        this.add(block, LootTable.lootTable()
+                .withPool(LootPool.lootPool()
+                        .setRolls(ContextIntProviders.exactly(1))
+                            .add(AlternativesEntry.alternatives(
+                                LootItem.lootTableItem(block).when(silkTouch),
+                                LootItem.lootTableItem(slice)
+                                        .apply(SetItemCountFunction.setCount(ContextIntProviders.between(1, 9)))
+                                        .apply(ApplyExplosionDecay.explosionDecay())))));
     }
 
     private LootTable.Builder createWildCropDrops(Block block, ItemLike seedsItem, ItemLike cropItem) {
